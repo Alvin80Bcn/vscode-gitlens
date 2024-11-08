@@ -1,15 +1,24 @@
+import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
-import { fetch } from '@env/fetch';
+import type { AnthropicModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
-import { configuration } from '../system/configuration';
 import { sum } from '../system/iterable';
-import type { Storage } from '../system/storage';
+import { interpolate } from '../system/string';
+import { configuration } from '../system/vscode/configuration';
+import type { Storage } from '../system/vscode/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
-import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
+import {
+	generateCloudPatchMessageSystemPrompt,
+	generateCloudPatchMessageUserPrompt,
+	generateCodeSuggestMessageSystemPrompt,
+	generateCodeSuggestMessageUserPrompt,
+	generateCommitMessageSystemPrompt,
+	generateCommitMessageUserPrompt,
+} from './prompts';
 
 const provider = { id: 'anthropic', name: 'Anthropic' } as const;
 type LegacyModels = Extract<AnthropicModels, 'claude-instant-1' | 'claude-2'>;
@@ -25,21 +34,12 @@ function isSupportedModel(model: AnthropicModel): model is SupportedModel {
 	return !isLegacyModel(model);
 }
 
-export type AnthropicModels =
-	| 'claude-instant-1'
-	| 'claude-2'
-	| 'claude-2.1'
-	| 'claude-3-opus-20240229'
-	| 'claude-3-sonnet-20240229'
-	| 'claude-3-5-sonnet-20240620'
-	| 'claude-3-haiku-20240307';
-
 type AnthropicModel = AIModel<typeof provider.id>;
 
 const models: AnthropicModel[] = [
 	{
-		id: 'claude-3-opus-20240229',
-		name: 'Claude 3 Opus',
+		id: 'claude-3-5-sonnet-latest',
+		name: 'Claude 3.5 Sonnet',
 		maxTokens: 200000,
 		provider: provider,
 	},
@@ -48,6 +48,20 @@ const models: AnthropicModel[] = [
 		name: 'Claude 3.5 Sonnet',
 		maxTokens: 200000,
 		provider: provider,
+		hidden: true,
+	},
+	{
+		id: 'claude-3-opus-latest',
+		name: 'Claude 3 Opus',
+		maxTokens: 200000,
+		provider: provider,
+	},
+	{
+		id: 'claude-3-opus-20240229',
+		name: 'Claude 3 Opus',
+		maxTokens: 200000,
+		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-3-sonnet-20240229',
@@ -89,9 +103,10 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
+			type: 'commit' | 'cloud-patch' | 'code-suggestion';
 			systemPrompt: string;
-			customPrompt: string;
-			contextName: string;
+			userPrompt: string;
+			customInstructions?: string;
 		},
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
@@ -107,15 +122,14 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 					model as LegacyModel,
 					apiKey,
 					(max, retries) => {
-						const code = diff.substring(0, max);
-						let prompt = `\n\nHuman: ${promptConfig.systemPrompt}\n\nHuman: Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}\n`;
-						if (options?.context) {
-							prompt += `\nHuman: Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}\n`;
-						}
-						if (promptConfig.customPrompt) {
-							prompt += `\nHuman: ${promptConfig.customPrompt}\n`;
-						}
-						prompt += '\nAssistant:';
+						const prompt = `\n\nHuman: ${promptConfig.systemPrompt}\n\n${interpolate(
+							promptConfig.userPrompt,
+							{
+								diff: diff.substring(0, max),
+								context: options?.context ?? '',
+								instructions: promptConfig.customInstructions ?? '',
+							},
+						)}\n\nAssistant:`;
 
 						reporting['retry.count'] = retries;
 						reporting['input.length'] = (reporting['input.length'] ?? 0) + prompt.length;
@@ -131,39 +145,18 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 					apiKey,
 					promptConfig.systemPrompt,
 					(max, retries) => {
-						const code = diff.substring(0, max);
 						const messages: Message[] = [
 							{
 								role: 'user',
 								content: [
 									{
 										type: 'text',
-										text: `Here is the code diff to use to generate the ${promptConfig.contextName}:`,
+										text: interpolate(promptConfig.userPrompt, {
+											diff: diff.substring(0, max),
+											context: options?.context ?? '',
+											instructions: promptConfig.customInstructions ?? '',
+										}),
 									},
-									{
-										type: 'text',
-										text: code,
-									},
-									...(options?.context
-										? ([
-												{
-													type: 'text',
-													text: `Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:`,
-												},
-												{
-													type: 'text',
-													text: options.context,
-												},
-										  ] satisfies Message['content'])
-										: []),
-									...(promptConfig.customPrompt
-										? ([
-												{
-													type: 'text',
-													text: promptConfig.customPrompt,
-												},
-										  ] satisfies Message['content'])
-										: []),
 								],
 							},
 						];
@@ -188,7 +181,7 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 
 			return result;
 		} catch (ex) {
-			throw new Error(`Unable to generate ${promptConfig.contextName}: ${ex.message}`);
+			throw new Error(`Unable to generate ${promptConfig.type} message: ${ex.message}`);
 		}
 	}
 
@@ -198,27 +191,28 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string; codeSuggestion?: boolean },
 	): Promise<string | undefined> {
-		let customPrompt =
-			options?.codeSuggestion === true
-				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
-				: configuration.get('experimental.generateCloudPatchMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
+		let codeSuggestion;
+		if (options != null) {
+			({ codeSuggestion, ...options } = options ?? {});
 		}
 
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
-			{
-				systemPrompt:
-					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName:
-					options?.codeSuggestion === true
-						? 'code suggestion title and description'
-						: 'cloud patch title and description',
-			},
+			codeSuggestion
+				? {
+						type: 'code-suggestion',
+						systemPrompt: generateCodeSuggestMessageSystemPrompt,
+						userPrompt: generateCodeSuggestMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
+				  }
+				: {
+						type: 'cloud-patch',
+						systemPrompt: generateCloudPatchMessageSystemPrompt,
+						userPrompt: generateCloudPatchMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+				  },
 			options,
 		);
 	}
@@ -229,19 +223,15 @@ export class AnthropicProvider implements AIProvider<typeof provider.id> {
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
-
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
 			{
-				systemPrompt: commitMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName: 'commit message',
+				type: 'commit',
+				systemPrompt: generateCommitMessageSystemPrompt,
+				userPrompt: generateCommitMessageUserPrompt,
+				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
 			},
 			options,
 		);

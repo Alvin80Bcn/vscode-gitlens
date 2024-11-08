@@ -8,11 +8,11 @@ import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
-import { setContext } from '../system/context';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
+import { setContext } from '../system/vscode/context';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -100,7 +100,9 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (children.length === 0) {
 				this.view.message = 'No contributors could be found.';
-				this.view.title = 'Contributors';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -108,12 +110,19 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Contributors (${children.length})`;
+
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${children.length})`;
+			} else {
+				this.view.description = `(${children.length})`;
+			}
 
 			return children;
 		}
 
-		this.view.title = 'Contributors';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -131,8 +140,8 @@ interface ContributorsViewState {
 export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
-	constructor(container: Container) {
-		super(container, 'contributors', 'Contributors', 'contributorsView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'contributors', 'Contributors', 'contributorsView', grouped);
 
 		void setContext('gitlens:views:contributors:hideMergeCommits', true);
 	}
@@ -155,8 +164,6 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
@@ -303,7 +310,7 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 				title: `Revealing contributor '${contributor.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findContributor(contributor, token);
 				if (node == null) return undefined;
 

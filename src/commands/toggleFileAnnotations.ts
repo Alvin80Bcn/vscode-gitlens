@@ -4,9 +4,9 @@ import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnot
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { showGenericErrorMessage } from '../messages';
-import { command } from '../system/command';
 import { Logger } from '../system/logger';
-import { getEditorIfVisible, isTrackableTextEditor } from '../system/utils';
+import { command } from '../system/vscode/command';
+import { getEditorIfVisible, isTrackableTextEditor } from '../system/vscode/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 
 @command()
@@ -15,7 +15,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 		super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
 	}
 
-	async execute(editor: TextEditor | undefined, edit: TextEditorEdit, uri?: Uri): Promise<void> {
+	async execute(editor: TextEditor | undefined, _edit: TextEditorEdit, uri?: Uri): Promise<void> {
 		editor = getValidEditor(editor, uri);
 		if (editor == null) return;
 

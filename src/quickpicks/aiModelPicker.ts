@@ -4,8 +4,8 @@ import type { AIModel } from '../ai/aiProviderService';
 import type { AIModels, AIProviders } from '../constants.ai';
 import { Commands } from '../constants.commands';
 import type { Container } from '../container';
-import { executeCommand } from '../system/command';
-import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { executeCommand } from '../system/vscode/command';
+import { getQuickPickIgnoreFocusOut } from '../system/vscode/utils';
 
 export interface ModelQuickPickItem extends QuickPickItem {
 	model: AIModel;
@@ -33,7 +33,7 @@ export async function showAIModelPicker(
 		items.push({
 			label: m.name,
 			iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
-			// description: m.provider.name,
+			// description: ` ~${formatNumeric(m.maxTokens)} tokens`,
 			model: m,
 			picked: picked,
 		} satisfies ModelQuickPickItem);

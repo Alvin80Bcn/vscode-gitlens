@@ -10,9 +10,9 @@ import type { RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -74,7 +74,9 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			const children = await child.getChildren();
 			if (children.length <= 1) {
 				this.view.message = undefined;
-				this.view.title = 'Worktrees';
+				if (!this.view.grouped) {
+					this.view.description = proBadge;
+				}
 
 				void child.ensureSubscription();
 
@@ -82,12 +84,21 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Worktrees (${children.length})`;
+
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${
+					children.length
+				}) \u00a0\u2022\u00a0 ${proBadge}`;
+			} else {
+				this.view.description = `(${children.length}) \u00a0\u2022\u00a0 ${proBadge}`;
+			}
 
 			return children;
 		}
 
-		this.view.title = 'Worktrees';
+		if (!this.view.grouped) {
+			this.view.description = proBadge;
+		}
 
 		return this.children;
 	}
@@ -101,10 +112,14 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
-	constructor(container: Container) {
-		super(container, 'worktrees', 'Worktrees', 'worktreesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'worktrees', 'Worktrees', 'worktreesView', grouped);
 
-		this.description = proBadge;
+		if (this.grouped) {
+			this.description = `${this.name.toLocaleLowerCase()} \u00a0\u2022\u00a0 ${proBadge}`;
+		} else {
+			this.description = proBadge;
+		}
 	}
 
 	override get canReveal(): boolean {
@@ -125,8 +140,6 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
@@ -254,7 +267,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				title: `Revealing worktree '${worktree.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findWorktree(worktree, token);
 				if (node == null) return undefined;
 

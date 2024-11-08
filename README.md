@@ -1,31 +1,34 @@
 # GitLens &mdash; Supercharge Git in VS Code
 
-> Supercharge Git and unlock **untapped knowledge** within your repository to better **understand**, **write**, and **review** code. Focus, collaborate, accelerate.
+> Supercharge Git and unlock **untapped knowledge** within your repo to better **understand**, **write**, and **review** code. Focus, collaborate, accelerate.
 
-[GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com).
+[GitLens](https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is a powerful [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for Visual Studio Code built and maintained by GitKraken.
 
-GitLens supercharges your Git experience in VS Code. Maintaining focus is critical, extra time spent context switching or missing context disrupts your flow. GitLens is the ultimate tool for making Git work for you, designed to improve focus, productivity, and collaboration with a powerful set of tools to help you and your team better understand, write, and review code.
-
-GitLens sets itself apart from other Git tools through its deep level of integration, versatility, and ease of use. GitLens sits directly within your editor, reducing context switching and promoting a more efficient workflow. We know Git is hard and strive to make it as easy as possible while also going beyond the basics with rich visualizations and step-by-step guidance and safety, just to name a few.
+Enhance your workflows with powerful Git functionality like in-editor blame annotations, hovers, CodeLens, and more—all fully customizable within VS Code. Try GitLens Pro's advanced workflows that accelerate PR reviews, provide rich interactive Git actions, and enhance collaboration for you and your team.
 
 ## Getting Started
+
+Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code by searching for GitLens.
 
 <p>
   <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/get-started-video.png" alt="Watch the GitLens Getting Started video" /></a>
 </p>
 
-Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code, by searching for GitLens.
+- Use `Switch to Pre-Release Version` on the extension banner to be the first to experience new features.
 
-Use `Switch to Pre-Release Version` on the extension banner to live on the edge and be the first to experience new features.
+> Have questions or concerns? Talk to our engineering team directly through our [GitHub Discussions](https://github.com/gitkraken/vscode-gitlens/discussions/categories/feedback) page. Having a positive experience with GitLens? Feel free to [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens&ssr=false#review-details).
 
-## Is GitLens Free?
+## GitLens Editions: Free and Pro
 
-All features are free to use on all repos, **except** for features,
+**GitLens Free** gives you powerful tools to manage Git and understand how your code has evolved and by whom. With popular features like in-editor blame annotations, hovers, and CodeLens, you can see actionable authorship details at the top of each file. Track the history of any file over time using Revision Navigation to gain deeper insights into code changes.
 
-- marked with a `Pro` require a [trial or paid plan](https://www.gitkraken.com/gitlens/pricing) for use on privately-hosted repos
-- marked with a `Preview` require a GitKraken account, with access level based on your [plan](https://www.gitkraken.com/gitlens/pricing), e.g. Free, Pro, etc
+**GitLens Pro** takes your workflow to the next level by unlocking advanced features and seamless integrations:
 
-See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
+- **Accelerate PR reviews** with Launchpad, a clean and actionable PR hub built directly into VS Code.
+- **Manage commits effortlessly** using the Commit Graph, where you can execute advanced actions like rebase, merge, and more. With powerful search and filtering, quickly locate commits, branches, or files.
+- **Enhance collaboration** by integrating with platforms like GitHub, GitLab, and Bitbucket, reducing context switching. View and manage PRs directly in VS Code through Launchpad.
+
+You can [try GitLens Pro for free](https://gitkraken.dev/register?product=gitlens&source=marketing_page&redirect_uri=vscode%3A%2F%2Feamodio.gitlens%2Flogin&flow=gitlens_web) by signing up for a GitKraken account. Some Pro features are available for free on public repos. `Preview` features may require a GitKraken account and could become Pro features in the future.
 
 [Features](#discover-powerful-features 'Jump to Discover Powerful Features')
 | [Labs](#gitkraken-labs 'Jump to GitKraken Labs')
@@ -45,7 +48,7 @@ Quickly glimpse into when, why, and by whom a line or code block was changed. Ze
 - [**Revision Navigation**](#revision-navigation) &mdash; Explore the history of a file to see how the code evolved over time.
 - [**Side Bar Views**](#side-bar-views) &mdash; Powerful views into Git that don't come in the box.
 - [**Commit Graph `Pro`**](#commit-graph-pro) &mdash; Visualize your repository and keep track of all work in progress.
-- [**Launchpad `Preview`**](#launchpad-preview) &mdash; Stay focused and keep your team unblocked.
+- [**Launchpad `Pro`**](#launchpad-pro) &mdash; Stay focused and keep your team unblocked.
 - [**Code Suggest `Preview`**](#code-suggest-preview) &mdash; Free your code reviews from unnecessary restrictions.
 - [**Cloud Patches `Preview`**](#cloud-patches-preview) &mdash; Easily and securely share code with your teammates.
 - [**Worktrees `Pro`**](#worktrees-pro) &mdash; Simultaneously work on different branches of a repository.
@@ -179,7 +182,7 @@ Use the rich commit search to find exactly what you're looking for. Its powerful
 
 💡Maximize the Graph via the `Toggle Maximized Commit Graph` command.
 
-## Launchpad `Preview`
+## Launchpad `Pro`
 
 Launchpad brings all of your GitHub pull requests into a unified, actionable list to better track work in progress, pending work, reviews, and more. Stay focused and take action on the most important items to keep your team unblocked. [Learn more](https://gitkraken.com/solutions/launchpad?utm_source=gitlens-extension&utm_medium=in-app-links)
 
@@ -277,7 +280,7 @@ Use the `Generate Commit Message` command from the Source Control view's context
 
 # Ready for GitLens Pro?
 
-When you're ready to unlock the full potential of GitLens and our [DevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links) and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
+When you're ready to unlock the full potential of GitLens and the [GitKrakenDevEx platform](https://gitkraken.com/devex?utm_source=gitlens-extension&utm_medium=in-app-links) and enjoy all the benefits on your privately-hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to [Pro features](https://gitkraken.com/gitlens/pro-features?utm_source=gitlens-extension&utm_medium=in-app-links) on privately-hosted repos.
 
 To learn more about the pricing and the additional features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing?utm_source=gitlens-extension&utm_medium=in-app-links). Upgrade to GitLens Pro today and take your Git workflow to the next level!
 
@@ -447,6 +450,8 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - may ([@m4rch3n1ng](https://github.com/m4rch3n1ng)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=m4rch3n1ng)
 - bm-w ([@bm-w](https://github.com/bm-w)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=bm-w)
 - Tyler Johnson ([@TJohnsonSE](https://github.com/TJohnsonSE)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=TJohnsonSE)
+- Jean Pierre ([@jeanp413](https://github.com/jeanp413)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jeanp413)
+- Dawn Hwang ([@hwangh95](https://github.com/hwangh95)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=hwangh95)
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

@@ -9,8 +9,8 @@ import type { GitReference } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
 import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
-import { command } from '../system/command';
 import { pad } from '../system/string';
+import { command } from '../system/vscode/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface OpenFileAtRevisionFromCommandArgs {
@@ -68,7 +68,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 						allowRevisions: true,
 						keyboard: {
 							keys: ['right', 'alt+right', 'ctrl+right'],
-							onDidPressKey: async (key, item) => {
+							onDidPressKey: async (_key, item) => {
 								await openFileAtRevision(
 									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{

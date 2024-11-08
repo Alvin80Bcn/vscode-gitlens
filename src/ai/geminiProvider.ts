@@ -1,25 +1,33 @@
+import { fetch } from '@env/fetch';
 import type { CancellationToken } from 'vscode';
 import { window } from 'vscode';
-import { fetch } from '@env/fetch';
+import type { GeminiModels } from '../constants.ai';
 import type { TelemetryEvents } from '../constants.telemetry';
 import type { Container } from '../container';
 import { CancellationError } from '../errors';
-import { configuration } from '../system/configuration';
 import { sum } from '../system/iterable';
-import type { Storage } from '../system/storage';
+import { interpolate } from '../system/string';
+import { configuration } from '../system/vscode/configuration';
+import type { Storage } from '../system/vscode/storage';
 import type { AIModel, AIProvider } from './aiProviderService';
 import { getApiKey as getApiKeyCore, getMaxCharacters } from './aiProviderService';
-import { cloudPatchMessageSystemPrompt, codeSuggestMessageSystemPrompt, commitMessageSystemPrompt } from './prompts';
+import {
+	generateCloudPatchMessageSystemPrompt,
+	generateCloudPatchMessageUserPrompt,
+	generateCodeSuggestMessageSystemPrompt,
+	generateCodeSuggestMessageUserPrompt,
+	generateCommitMessageSystemPrompt,
+	generateCommitMessageUserPrompt,
+} from './prompts';
 
 const provider = { id: 'gemini', name: 'Google' } as const;
 
-export type GeminiModels = 'gemini-1.0-pro' | 'gemini-1.5-pro-latest' | 'gemini-1.5-flash-latest';
 type GeminiModel = AIModel<typeof provider.id>;
 const models: GeminiModel[] = [
 	{
 		id: 'gemini-1.5-pro-latest',
 		name: 'Gemini 1.5 Pro',
-		maxTokens: 1048576,
+		maxTokens: 2097152,
 		provider: provider,
 		default: true,
 	},
@@ -54,9 +62,10 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		diff: string,
 		reporting: TelemetryEvents['ai/generate'],
 		promptConfig: {
+			type: 'commit' | 'cloud-patch' | 'code-suggestion';
 			systemPrompt: string;
-			customPrompt: string;
-			contextName: string;
+			userPrompt: string;
+			customInstructions?: string;
 		},
 		options?: {
 			cancellation?: CancellationToken | undefined;
@@ -69,8 +78,6 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		const retries = 0;
 		const maxCodeCharacters = getMaxCharacters(model, 2600);
 		while (true) {
-			const code = diff.substring(0, maxCodeCharacters);
-
 			const request: GenerateContentRequest = {
 				systemInstruction: {
 					parts: [
@@ -84,17 +91,11 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 						role: 'user',
 						parts: [
 							{
-								text: `Here is the code diff to use to generate the ${promptConfig.contextName}:\n\n${code}`,
-							},
-							...(options?.context
-								? [
-										{
-											text: `Here is additional context which should be taken into account when generating the ${promptConfig.contextName}:\n\n${options.context}`,
-										},
-								  ]
-								: []),
-							{
-								text: promptConfig.customPrompt,
+								text: interpolate(promptConfig.userPrompt, {
+									diff: diff.substring(0, maxCodeCharacters),
+									context: options?.context ?? '',
+									instructions: promptConfig.customInstructions ?? '',
+								}),
 							},
 						],
 					},
@@ -122,7 +123,7 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 				// }
 
 				throw new Error(
-					`Unable to generate ${promptConfig.contextName}: (${this.name}:${rsp.status}) ${
+					`Unable to generate ${promptConfig.type} message: (${this.name}:${rsp.status}) ${
 						json?.error?.message || rsp.statusText
 					}`,
 				);
@@ -150,27 +151,28 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 			codeSuggestion?: boolean | undefined;
 		},
 	): Promise<string | undefined> {
-		let customPrompt =
-			options?.codeSuggestion === true
-				? configuration.get('experimental.generateCodeSuggestionMessagePrompt')
-				: configuration.get('experimental.generateCloudPatchMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
+		let codeSuggestion;
+		if (options != null) {
+			({ codeSuggestion, ...options } = options ?? {});
 		}
 
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
-			{
-				systemPrompt:
-					options?.codeSuggestion === true ? codeSuggestMessageSystemPrompt : cloudPatchMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName:
-					options?.codeSuggestion === true
-						? 'code suggestion title and description'
-						: 'cloud patch title and description',
-			},
+			codeSuggestion
+				? {
+						type: 'code-suggestion',
+						systemPrompt: generateCodeSuggestMessageSystemPrompt,
+						userPrompt: generateCodeSuggestMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCodeSuggestionMessagePrompt'),
+				  }
+				: {
+						type: 'cloud-patch',
+						systemPrompt: generateCloudPatchMessageSystemPrompt,
+						userPrompt: generateCloudPatchMessageUserPrompt,
+						customInstructions: configuration.get('experimental.generateCloudPatchMessagePrompt'),
+				  },
 			options,
 		);
 	}
@@ -181,19 +183,15 @@ export class GeminiProvider implements AIProvider<typeof provider.id> {
 		reporting: TelemetryEvents['ai/generate'],
 		options?: { cancellation?: CancellationToken; context?: string },
 	): Promise<string | undefined> {
-		let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
-		if (!customPrompt.endsWith('.')) {
-			customPrompt += '.';
-		}
-
 		return this.generateMessage(
 			model,
 			diff,
 			reporting,
 			{
-				systemPrompt: commitMessageSystemPrompt,
-				customPrompt: customPrompt,
-				contextName: 'commit message',
+				type: 'commit',
+				systemPrompt: generateCommitMessageSystemPrompt,
+				userPrompt: generateCommitMessageUserPrompt,
+				customInstructions: configuration.get('experimental.generateCommitMessagePrompt'),
 			},
 			options,
 		);

@@ -7,17 +7,22 @@ import { Commands } from '../constants.commands';
 import type { Container } from '../container';
 import { AuthenticationRequiredError } from '../errors';
 import { GitUri, unknownGitUri } from '../git/gitUri';
-import type { FocusCommandArgs } from '../plus/focus/focus';
-import type { FocusGroup, FocusItem } from '../plus/focus/focusProvider';
-import { focusGroupIconMap, focusGroupLabelMap, groupAndSortFocusItems } from '../plus/focus/focusProvider';
-import { createCommand, executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
+import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad';
+import type { LaunchpadGroup, LaunchpadItem } from '../plus/launchpad/launchpadProvider';
+import {
+	groupAndSortLaunchpadItems,
+	launchpadGroupIconMap,
+	launchpadGroupLabelMap,
+} from '../plus/launchpad/launchpadProvider';
+import { createCommand, executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ClipboardType, ViewNode } from './nodes/abstract/viewNode';
 import { ContextValues, getViewNodeId } from './nodes/abstract/viewNode';
-import { GroupingNode } from './nodes/groupingNode';
+import type { GroupingNode } from './nodes/groupingNode';
+import { LaunchpadViewGroupingNode } from './nodes/launchpadViewGroupingNode';
 import { getPullRequestChildren, getPullRequestTooltip } from './nodes/pullRequestNode';
-import { ViewBase } from './viewBase';
+import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item', LaunchpadView> {
@@ -26,8 +31,8 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 	constructor(
 		view: LaunchpadView,
 		protected override readonly parent: ViewNode,
-		private readonly group: FocusGroup,
-		public readonly item: FocusItem,
+		private readonly group: LaunchpadGroup,
+		public readonly item: LaunchpadItem,
 	) {
 		const repoPath = item.openRepository?.repo?.path;
 
@@ -79,23 +84,32 @@ export class LaunchpadItemNode extends CacheableChildrenViewNode<'launchpad-item
 
 		const item = new TreeItem(
 			lpi.title.length > 60 ? `${lpi.title.substring(0, 60)}...` : lpi.title,
-			TreeItemCollapsibleState.Collapsed,
+			this.item.openRepository?.localBranch?.current
+				? TreeItemCollapsibleState.Expanded
+				: TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ContextValues.LaunchpadItem;
 		item.description = `\u00a0 ${lpi.repository.owner.login}/${lpi.repository.name}#${lpi.id} \u00a0 ${
 			lpi.codeSuggestionsCount > 0 ? ` $(gitlens-code-suggestion) ${lpi.codeSuggestionsCount}` : ''
 		}`;
 		item.iconPath = lpi.author?.avatarUrl != null ? Uri.parse(lpi.author.avatarUrl) : undefined;
-		item.command = createCommand<[Omit<FocusCommandArgs, 'command'>]>(Commands.ShowLaunchpad, 'Open in Launchpad', {
-			source: 'launchpad-view',
-			state: {
-				item: { ...this.item, group: this.group },
-			},
-		} satisfies Omit<FocusCommandArgs, 'command'>);
+		item.command = createCommand<[Omit<LaunchpadCommandArgs, 'command'>]>(
+			Commands.ShowLaunchpad,
+			'Open in Launchpad',
+			{
+				source: 'launchpad-view',
+				state: {
+					item: { ...this.item, group: this.group },
+				},
+			} satisfies Omit<LaunchpadCommandArgs, 'command'>,
+		);
 
 		if (lpi.type === 'pullrequest') {
 			item.contextValue += '+pr';
-			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest);
+			item.tooltip = getPullRequestTooltip(lpi.underlyingPullRequest, {
+				idPrefix: `${lpi.repository.owner.login}/${lpi.repository.name}`,
+				codeSuggestionsCount: lpi.codeSuggestionsCount,
+			});
 		}
 
 		return item;
@@ -107,8 +121,23 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 	LaunchpadView,
 	GroupingNode | LaunchpadItemNode
 > {
+	private disposable: Disposable;
+
 	constructor(view: LaunchpadView) {
 		super('launchpad', unknownGitUri, view);
+		this.disposable = Disposable.from(this.view.container.launchpad.onDidChange(this.refresh, this));
+	}
+
+	override dispose() {
+		this.disposable?.dispose();
+		super.dispose();
+	}
+
+	override refresh() {
+		if (this.children == null) return;
+
+		disposeChildren(this.children);
+		this.children = undefined;
 	}
 
 	async getChildren(): Promise<(GroupingNode | LaunchpadItemNode)[]> {
@@ -117,30 +146,40 @@ export class LaunchpadViewNode extends CacheableChildrenViewNode<
 
 			this.view.message = undefined;
 
-			const hasIntegrations = await this.view.container.focus.hasConnectedIntegration();
+			const hasIntegrations = await this.view.container.launchpad.hasConnectedIntegration();
 			if (!hasIntegrations) {
 				return [];
 			}
 
 			try {
-				const result = await this.view.container.focus.getCategorizedItems();
+				const result = await this.view.container.launchpad.getCategorizedItems();
 				if (!result.items?.length) {
 					this.view.message = 'All done! Take a vacation.';
 					return [];
 				}
 
-				const uiGroups = groupAndSortFocusItems(result.items);
+				const uiGroups = groupAndSortLaunchpadItems(result.items);
+				const expanded = new Map(
+					(
+						(this.view.container.storage.get('launchpadView:groups:expanded') satisfies
+							| LaunchpadGroup[]
+							| undefined) ?? []
+					).map(g => [g, true]),
+				);
 				for (const [ui, groupItems] of uiGroups) {
 					if (!groupItems.length) continue;
 
-					const icon = focusGroupIconMap.get(ui)!;
+					const icon = launchpadGroupIconMap.get(ui)!;
 
 					children.push(
-						new GroupingNode(
+						new LaunchpadViewGroupingNode(
 							this.view,
-							focusGroupLabelMap.get(ui)!,
+							launchpadGroupLabelMap.get(ui)!,
+							ui,
 							groupItems.map(i => new LaunchpadItemNode(this.view, this, ui, i)),
-							TreeItemCollapsibleState.Collapsed,
+							ui === 'current-branch' || expanded.get(ui)
+								? TreeItemCollapsibleState.Expanded
+								: TreeItemCollapsibleState.Collapsed,
 							undefined,
 							undefined,
 							new ThemeIcon(icon.substring(2, icon.length - 1)),
@@ -186,7 +225,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 		if (this._disposable == null) {
 			this._disposable = Disposable.from(
 				this.container.integrations.onDidChangeConnectionState(() => this.refresh(), this),
-				this.container.focus.onDidRefresh(() => this.refresh(), this),
+				this.container.launchpad.onDidRefresh(() => this.refresh(), this),
 			);
 		}
 
@@ -220,14 +259,12 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('info'),
 				() =>
 					executeCommand<OpenWalkthroughCommandArgs>(Commands.OpenWalkthrough, {
-						step: 'launchpad',
+						step: 'accelerate-pr-reviews',
 						source: 'launchpad-view',
 						detail: 'info',
 					}),
@@ -242,7 +279,7 @@ export class LaunchpadView extends ViewBase<'launchpad', LaunchpadViewNode, Laun
 				this.getQualifiedCommand('refresh'),
 				() =>
 					window.withProgress({ location: { viewId: this.id } }, () =>
-						this.container.focus.getCategorizedItems({ force: true }),
+						this.container.launchpad.getCategorizedItems({ force: true }),
 					),
 				this,
 			),

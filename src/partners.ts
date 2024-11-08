@@ -4,7 +4,7 @@ import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
 import type { InviteToLiveShareCommandArgs } from './commands/inviteToLiveShare';
 import { Commands } from './constants.commands';
 import { Container } from './container';
-import { executeCommand, executeCoreCommand } from './system/command';
+import { executeCommand, executeCoreCommand } from './system/vscode/command';
 import type { ContactPresence } from './vsls/vsls';
 
 export async function installExtension<T>(
@@ -43,7 +43,7 @@ export async function installExtension<T>(
 			tokenSource.cancel();
 		}, timeout);
 
-		return extension;
+		return await extension;
 	} catch {
 		tokenSource.cancel();
 		return undefined;

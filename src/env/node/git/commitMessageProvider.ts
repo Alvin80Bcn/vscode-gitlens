@@ -6,10 +6,10 @@ import type {
 	Repository as ScmGitRepository,
 } from '../../../@types/vscode.git';
 import type { Container } from '../../../container';
-import { configuration } from '../../../system/configuration';
 import { log } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
+import { configuration } from '../../../system/vscode/configuration';
 
 class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 	icon: ThemeIcon = new ThemeIcon('sparkle');
@@ -64,9 +64,10 @@ class AICommitMessageProvider implements CommitMessageProvider, Disposable {
 				},
 			);
 
-			return currentMessage ? `${currentMessage}\n\n${message}` : message;
+			if (message == null) return;
+			return `${currentMessage ? `${currentMessage}\n\n` : ''}${message.summary}\n\n${message.body}`;
 		} catch (ex) {
-			Logger.error(scope, ex);
+			Logger.error(ex, scope);
 
 			if (ex instanceof Error && ex.message.startsWith('No changes')) {
 				void window.showInformationMessage('No changes to generate a commit message from.');

@@ -7,13 +7,13 @@ import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import { filterMap } from '../system/array';
-import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
 import { first } from '../system/iterable';
 import { getLogScope } from '../system/logger.scope';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { TokenOptions } from '../system/string';
 import { getTokensFromTemplate, getWidth } from '../system/string';
+import { configuration } from '../system/vscode/configuration';
 import type { TrackedGitDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext, AnnotationState, DidChangeStatusCallback } from './annotationProvider';
 import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './annotations';
@@ -50,7 +50,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	@log()
-	override async onProvideAnnotation(context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
+	override async onProvideAnnotation(_context?: AnnotationContext, state?: AnnotationState): Promise<boolean> {
 		const scope = getLogScope();
 
 		const blame = await this.getBlame(state?.recompute);

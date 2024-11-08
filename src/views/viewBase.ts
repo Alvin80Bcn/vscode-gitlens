@@ -32,17 +32,17 @@ import type {
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
 import type { TreeViewCommandSuffixesByViewType } from '../constants.commands';
+import type { TrackedUsageFeatures } from '../constants.telemetry';
 import type { TreeViewIds, TreeViewTypes } from '../constants.views';
 import type { Container } from '../container';
-import { executeCoreCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { cancellable, isPromise } from '../system/promise';
-import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
+import { executeCoreCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
@@ -79,7 +79,7 @@ export type View =
 	| WorktreesView;
 
 // prettier-ignore
-type TreeViewByType = {
+export type TreeViewByType = {
 	[T in TreeViewTypes]: T extends 'branches'
 		? BranchesView
 		: T extends 'commits'
@@ -210,7 +210,11 @@ export abstract class ViewBase<
 		public readonly type: Type,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
+		public readonly grouped?: boolean,
 	) {
+		if (this.grouped) {
+			this.description = this.name.toLocaleLowerCase();
+		}
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (this.container.debugging || configuration.get('debug')) {
@@ -266,11 +270,15 @@ export abstract class ViewBase<
 	dispose() {
 		this._nodeState?.dispose();
 		this._nodeState = undefined;
+		this.root?.dispose();
 		Disposable.from(...this.disposables).dispose();
 	}
 
 	private onReady() {
-		this.initialize({ canSelectMany: this.canSelectMany, showCollapseAll: this.showCollapseAll });
+		this.initialize({
+			canSelectMany: this.canSelectMany,
+			showCollapseAll: this.grouped ? false : this.showCollapseAll,
+		});
 		queueMicrotask(() => this.onConfigurationChanged());
 	}
 
@@ -361,7 +369,7 @@ export abstract class ViewBase<
 	}
 
 	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
-		this.tree = window.createTreeView<ViewNode>(this.id, {
+		this.tree = window.createTreeView<ViewNode>(this.grouped ? 'gitlens.views.grouped' : this.id, {
 			...options,
 			treeDataProvider: this,
 		});
@@ -395,6 +403,7 @@ export abstract class ViewBase<
 
 	protected ensureRoot(force: boolean = false) {
 		if (this.root == null || force) {
+			this.root?.dispose();
 			this.root = this.getRoot();
 		}
 
@@ -712,6 +721,7 @@ export abstract class ViewBase<
 			await this.tree.reveal(node, options);
 		} catch (ex) {
 			Logger.error(ex);
+			debugger;
 		}
 	}
 
@@ -720,7 +730,16 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			void (await executeCoreCommand(`${this.id}.focus`, options));
+			const command = `${this.grouped ? 'gitlens.views.grouped' : this.id}.focus` as const;
+			// If we haven't been initialized, the focus command will show the view, but won't focus it, so wait until it's initialized and then focus again
+			if (!this.initialized) {
+				void executeCoreCommand(command, options);
+				await new Promise<void>(resolve => {
+					void once(this._onDidInitialize.event)(() => resolve(), this);
+				});
+			}
+
+			void (await executeCoreCommand(command, options));
 		} catch (ex) {
 			Logger.error(ex, scope);
 		}

@@ -13,6 +13,7 @@ import type {
 	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
+	GraphSearchMode,
 	InternalNotificationType,
 	State,
 	UpdateGraphConfigurationParams,
@@ -49,6 +50,7 @@ import {
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
+	UpdateGraphSearchModeCommand,
 	UpdateIncludedRefsCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
@@ -104,6 +106,7 @@ export class GraphApp extends App<State> {
 					)}
 					onChangeExcludeTypes={this.onExcludeTypesChanged.bind(this)}
 					onChangeGraphConfiguration={this.onGraphConfigurationChanged.bind(this)}
+					onChangeGraphSearchMode={this.onGraphSearchModeChanged.bind(this)}
 					onChangeRefIncludes={this.onRefIncludesChanged.bind(this)}
 					onChangeRefsVisibility={(refs: GraphExcludedRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
@@ -566,7 +569,12 @@ export class GraphApp extends App<State> {
 
 	private async onHoverRowPromise(row: GraphRow) {
 		try {
-			return await this.sendRequest(GetRowHoverRequest, { type: row.type as GitGraphRowType, id: row.sha });
+			const request = await this.sendRequest(GetRowHoverRequest, {
+				type: row.type as GitGraphRowType,
+				id: row.sha,
+			});
+			this._telemetry.sendEvent({ name: 'graph/row/hovered', data: {} });
+			return request;
 		} catch (ex) {
 			return { id: row.sha, markdown: { status: 'rejected' as const, reason: ex } };
 		}
@@ -576,6 +584,7 @@ export class GraphApp extends App<State> {
 		try {
 			// Assuming we have a command to get the ref details
 			const rsp = await this.sendRequest(ChooseRefRequest, { alt: alt });
+			this._telemetry.sendEvent({ name: 'graph/action/jumpTo', data: { alt: alt } });
 			return rsp;
 		} catch {
 			return undefined;
@@ -648,8 +657,13 @@ export class GraphApp extends App<State> {
 		this.sendCommand(UpdateGraphConfigurationCommand, { changes: changes });
 	}
 
+	private onGraphSearchModeChanged(searchMode: GraphSearchMode) {
+		this.sendCommand(UpdateGraphSearchModeCommand, { searchMode: searchMode });
+	}
+
 	private onSelectionChanged(rows: GraphRow[]) {
 		const selection = rows.filter(r => r != null).map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
+		this._telemetry.sendEvent({ name: 'graph/row/selected', data: { rows: selection.length } });
 		this.sendCommand(UpdateSelectionCommand, {
 			selection: selection,
 		});

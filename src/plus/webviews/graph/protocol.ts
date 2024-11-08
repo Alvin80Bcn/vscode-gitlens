@@ -23,6 +23,7 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle, GraphBranchesVisibility } from '../../../config';
+import type { SupportedCloudIntegrationIds } from '../../../constants.integrations';
 import type { SearchQuery } from '../../../constants.search';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
@@ -63,6 +64,7 @@ export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ Gra
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
+export type GraphSearchMode = 'normal' | 'filter';
 
 export type GraphScrollMarkerTypes =
 	| 'selection'
@@ -94,7 +96,7 @@ export interface State extends WebviewState {
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;
-	branchName?: string;
+	branch?: GitBranchReference;
 	branchState?: BranchState;
 	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
@@ -114,6 +116,7 @@ export interface State extends WebviewState {
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
+	defaultSearchMode?: GraphSearchMode;
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
@@ -136,6 +139,7 @@ export interface BranchState extends GitTrackingState {
 		url?: string;
 	};
 	pr?: PullRequestShape;
+	worktree?: boolean;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
@@ -151,7 +155,15 @@ export interface GraphRepository {
 	name: string;
 	path: string;
 	isVirtual: boolean;
-	isConnected: boolean;
+	provider?: {
+		name: string;
+		integration?: {
+			id: SupportedCloudIntegrationIds;
+			connected: boolean;
+		};
+		icon?: string;
+		url?: string;
+	};
 }
 
 export interface GraphCommitIdentity {
@@ -236,6 +248,8 @@ export type DoubleClickedParams =
 	  };
 export const DoubleClickedCommandType = new IpcCommand<DoubleClickedParams>(scope, 'dblclick');
 
+export const ContinuePreview = new IpcCommand<undefined>(scope, 'dblclick');
+
 export interface GetMissingAvatarsParams {
 	emails: GraphAvatars;
 }
@@ -289,6 +303,11 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 	'configuration/update',
 );
 
+export interface UpdateGraphSearchModeParams {
+	searchMode: GraphSearchMode;
+}
+export const UpdateGraphSearchModeCommand = new IpcCommand<UpdateGraphSearchModeParams>(scope, 'search/update/mode');
+
 export interface UpdateIncludedRefsParams {
 	branchesVisibility?: GraphBranchesVisibility;
 	refs?: GraphIncludeOnlyRef[];
@@ -318,7 +337,6 @@ export interface DidEnsureRowParams {
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
-export interface GetCountParams {}
 export type DidGetCountParams =
 	| {
 			branches: number;
@@ -328,7 +346,7 @@ export type DidGetCountParams =
 			worktrees?: number;
 	  }
 	| undefined;
-export const GetCountsRequest = new IpcRequest<GetCountParams, DidGetCountParams>(scope, 'counts');
+export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, 'counts');
 
 export type GetRowHoverParams = {
 	type: GitGraphRowType;

@@ -6,6 +6,8 @@ export const previewBadge = 'ᴘʀᴇᴠɪᴇᴡ';
 export const proBadge = 'ᴘʀᴏ';
 export const proBadgeSuperscript = 'ᴾᴿᴼ';
 
+export type AnnotationStatus = 'computing' | 'computed';
+
 export const enum CharCode {
 	/**
 	 * The `#` character.
@@ -124,8 +126,6 @@ export const keys = Object.freeze([
 ] as const);
 export type Keys = (typeof keys)[number];
 
-export type PromoKeys = 'launchpad' | 'launchpad-extended' | 'pro50';
-
 export const enum Schemes {
 	File = 'file',
 	Git = 'git',
@@ -173,15 +173,11 @@ export const urls = Object.freeze({
 });
 
 export type WalkthroughSteps =
-	| 'get-started'
-	| 'core-features'
-	| 'pro-features'
-	| 'pro-trial'
-	| 'pro-upgrade'
-	| 'pro-reactivate'
-	| 'pro-paid'
-	| 'visualize'
-	| 'launchpad'
-	| 'code-collab'
-	| 'integrations'
-	| 'more';
+	| 'welcome-in-trial'
+	| 'welcome-paid'
+	| 'welcome-in-trial-expired'
+	| 'get-started-community'
+	| 'visualize-code-history'
+	| 'accelerate-pr-reviews'
+	| 'streamline-collaboration'
+	| 'improve-workflows-with-integrations';

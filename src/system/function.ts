@@ -86,7 +86,6 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(
 
 	function debounced(this: any, ...args: Parameters<T>) {
 		const time = Date.now();
-		const isInvoking = shouldInvoke(time);
 
 		if (aggregator != null && lastArgs) {
 			lastArgs = aggregator(lastArgs, args);
@@ -98,13 +97,6 @@ export function debounce<T extends (...args: any[]) => ReturnType<T>>(
 		lastThis = this;
 		lastCallTime = time;
 
-		if (isInvoking) {
-			if (timer == null) {
-				// Start the timer for the trailing edge.
-				timer = setTimeout(timerExpired, wait);
-				return result;
-			}
-		}
 		if (timer == null) {
 			timer = setTimeout(timerExpired, wait);
 		}
@@ -128,6 +120,7 @@ const fnBodyRegex = /\(([\s\S]*)\)/;
 const fnBodyStripCommentsRegex = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/gm;
 const fnBodyStripParamDefaultValueRegex = /\s?=.*$/;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 export function getParameters(fn: Function): string[] {
 	if (typeof fn !== 'function') throw new Error('Not supported');
 

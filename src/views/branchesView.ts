@@ -11,9 +11,9 @@ import { getReferenceLabel } from '../git/models/reference';
 import type { Repository, RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { getWorktreesByBranch } from '../git/models/worktree';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -82,10 +82,12 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const branches = await child.repo.getBranches({ filter: b => !b.remote });
+			const branches = await child.repo.git.getBranches({ filter: b => !b.remote });
 			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
-				this.view.title = 'Branches';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -93,12 +95,19 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Branches (${branches.values.length})`;
+
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${branches.values.length})`;
+			} else {
+				this.view.description = `(${branches.values.length})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Branches';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -112,8 +121,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
-	constructor(container: Container) {
-		super(container, 'branches', 'Branches', 'branchesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'branches', 'Branches', 'branchesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -129,8 +138,6 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
@@ -279,7 +286,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
@@ -308,7 +315,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 

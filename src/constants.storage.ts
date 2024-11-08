@@ -1,10 +1,10 @@
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config';
 import type { AIProviders } from './constants.ai';
+import type { IntegrationId } from './constants.integrations';
+import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry';
 import type { Environment } from './container';
 import type { Subscription } from './plus/gk/account/subscription';
 import type { Integration } from './plus/integrations/integration';
-import type { IntegrationId } from './plus/integrations/providers/models';
-import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink';
 
 export type SecretKeys =
@@ -68,9 +68,12 @@ export type GlobalStorage = {
 	'views:welcome:visible': boolean;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
-	'launchpad:groups:collapsed': StoredFocusGroup[];
+	'home:walkthrough:dismissed': boolean;
+	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
+	'launchpadView:groups:expanded': StoredLaunchpadGroup[];
+	'graph:searchMode': StoredGraphSearchMode;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 } & { [key in `gk:${string}:checkin`]: Stored<StoredGKCheckInResponse> } & {
@@ -112,11 +115,13 @@ export interface Stored<T, SchemaVersion extends number = 1> {
 	timestamp?: number;
 }
 
+export type StoredGKLicenses = Partial<Record<StoredGKLicenseType, StoredGKLicense>>;
+
 export interface StoredGKCheckInResponse {
 	user: StoredGKUser;
 	licenses: {
-		paidLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
-		effectiveLicenses: Record<StoredGKLicenseType, StoredGKLicense>;
+		paidLicenses: StoredGKLicenses;
+		effectiveLicenses: StoredGKLicenses;
 	};
 }
 
@@ -229,6 +234,8 @@ export interface StoredGraphFilters {
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
 
+export type StoredGraphSearchMode = 'normal' | 'filter';
+
 export interface StoredGraphExcludedRef {
 	id: string;
 	type: StoredGraphRefType;
@@ -287,7 +294,7 @@ export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareI
 export type StoredStarred = Record<string, boolean>;
 export type StoredRecentUsage = Record<string, number>;
 
-export type StoredFocusGroup =
+export type StoredLaunchpadGroup =
 	| 'current-branch'
 	| 'pinned'
 	| 'mergeable'

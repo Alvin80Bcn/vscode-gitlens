@@ -1,4 +1,6 @@
+import type { TimeInput } from '@opentelemetry/api';
 import type { Config } from '../config';
+import type { Source, TelemetryEvents, TelemetryEventsFromWebviewApp } from '../constants.telemetry';
 import type {
 	CustomEditorIds,
 	CustomEditorTypes,
@@ -7,7 +9,7 @@ import type {
 	WebviewViewIds,
 	WebviewViewTypes,
 } from '../constants.views';
-import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/configuration';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/vscode/configuration';
 
 export type IpcScope = 'core' | CustomEditorTypes | WebviewTypes | WebviewViewTypes;
 
@@ -92,6 +94,15 @@ export interface UpdateConfigurationParams {
 }
 export const UpdateConfigurationCommand = new IpcCommand<UpdateConfigurationParams>('core', 'configuration/update');
 
+export interface TelemetrySendEventParams<T extends keyof TelemetryEvents = keyof TelemetryEvents> {
+	name: T;
+	data: TelemetryEventsFromWebviewApp[T];
+	source?: Source;
+	startTime?: TimeInput;
+	endTime?: TimeInput;
+}
+export const TelemetrySendEventCommand = new IpcCommand<TelemetrySendEventParams>('core', 'telemetry/sendEvent');
+
 // NOTIFICATIONS
 
 export interface DidChangeHostWindowFocusParams {
@@ -141,7 +152,7 @@ export function isCustomConfigKey(key: string): key is CustomConfigPath {
 }
 
 export function assertsConfigKeyValue<T extends ConfigPath>(
-	key: T,
+	_key: T,
 	value: unknown,
 ): asserts value is ConfigPathValue<T> {
 	// Noop

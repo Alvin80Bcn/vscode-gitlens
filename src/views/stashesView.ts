@@ -8,9 +8,9 @@ import type { GitStashReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -60,10 +60,12 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const stash = await child.repo.getStash();
+			const stash = await child.repo.git.getStash();
 			if (stash == null || stash.commits.size === 0) {
 				this.view.message = 'No stashes could be found.';
-				this.view.title = 'Stashes';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
@@ -71,12 +73,18 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Stashes (${stash.commits.size})`;
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${stash.commits.size})`;
+			} else {
+				this.view.description = `(${stash.commits.size})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Stashes';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -90,8 +98,8 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
-	constructor(container: Container) {
-		super(container, 'stashes', 'Stashes', 'stashesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'stashes', 'Stashes', 'stashesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -107,8 +115,6 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
@@ -214,7 +220,7 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findStash(stash, token);
 				if (node == null) return undefined;
 

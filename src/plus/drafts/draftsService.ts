@@ -1,8 +1,9 @@
+import type { HeadersInit } from '@env/fetch';
 import type { EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
-import type { HeadersInit } from '@env/fetch';
 import { getAvatarUri } from '../../avatars';
+import type { IntegrationId } from '../../constants.integrations';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -43,13 +44,12 @@ import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
-import type { FocusItem } from '../focus/focusProvider';
 import type { OrganizationMember } from '../gk/account/organization';
 import type { SubscriptionAccount } from '../gk/account/subscription';
 import type { ServerConnection } from '../gk/serverConnection';
-import type { IntegrationId } from '../integrations/providers/models';
 import { providersMetadata } from '../integrations/providers/models';
 import { getEntityIdentifierInput } from '../integrations/providers/utils';
+import type { LaunchpadItem } from '../launchpad/launchpadProvider';
 
 export interface ProviderAuth {
 	provider: IntegrationId;
@@ -754,7 +754,7 @@ export class DraftService implements Disposable {
 	): Promise<ProviderAuth | undefined> {
 		let integration;
 		if (isRepository(repoOrIntegrationId)) {
-			const remoteProvider = await repoOrIntegrationId.getBestRemoteWithIntegration();
+			const remoteProvider = await repoOrIntegrationId.git.getBestRemoteWithIntegration();
 			if (remoteProvider == null) return undefined;
 
 			integration = await remoteProvider.getIntegration();
@@ -820,13 +820,13 @@ export class DraftService implements Disposable {
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	async getCodeSuggestions(
-		focusItem: FocusItem,
+		launchpadItem: LaunchpadItem,
 		integrationId: IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]>;
 	@log<DraftService['getCodeSuggestions']>({ args: { 0: i => i.id, 1: r => (isRepository(r) ? r.id : r) } })
 	async getCodeSuggestions(
-		item: PullRequest | FocusItem,
+		item: PullRequest | LaunchpadItem,
 		repositoryOrIntegrationId: Repository | IntegrationId,
 		options?: { includeArchived?: boolean },
 	): Promise<Draft[]> {
@@ -842,7 +842,7 @@ export class DraftService implements Disposable {
 				isArchived: options?.includeArchived != null ? options.includeArchived : true,
 			});
 			return drafts;
-		} catch (e) {
+		} catch (_ex) {
 			return [];
 		}
 	}

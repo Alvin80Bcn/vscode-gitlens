@@ -3,8 +3,8 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { ViewFilesLayout } from '../../../../config';
-import type { Serialized } from '../../../../system/serialize';
 import { pluralize } from '../../../../system/string';
+import type { Serialized } from '../../../../system/vscode/serialize';
 import type { DraftState, ExecuteCommitActionsParams, Mode, State } from '../../../commitDetails/protocol';
 import {
 	ChangeReviewModeCommand,
@@ -183,7 +183,7 @@ export class GlCommitDetailsApp extends LitElement {
 	override updated(changedProperties: Map<string | number | symbol, unknown>) {
 		if (changedProperties.has('state')) {
 			this.updateDocumentProperties();
-			if (this.state?.inReview != null && this.state.inReview != this.draftState.inReview) {
+			if (this.state?.inReview != null && this.state.inReview !== this.draftState.inReview) {
 				this.draftState.inReview = this.state.inReview;
 			}
 		}
@@ -604,7 +604,7 @@ export class GlCommitDetailsApp extends LitElement {
 			} else {
 				this.explain = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.explain = { error: { message: 'Error retrieving content' } };
 		}
 	}
@@ -632,7 +632,7 @@ export class GlCommitDetailsApp extends LitElement {
 			} else {
 				this.generate = undefined;
 			}
-		} catch (ex) {
+		} catch (_ex) {
 			this.generate = { error: { message: 'Error retrieving content' } };
 		}
 		this.requestUpdate('generate');

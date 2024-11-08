@@ -12,9 +12,9 @@ import { getReferenceLabel } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { groupRepositories, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { executeCommand } from '../system/command';
-import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { executeCommand } from '../system/vscode/command';
+import { configuration } from '../system/vscode/configuration';
 import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
 import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
@@ -74,23 +74,30 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			const remotes = await child.repo.getRemotes();
+			const remotes = await child.repo.git.getRemotes();
 			if (remotes.length === 0) {
 				this.view.message = 'No remotes could be found.';
-				this.view.title = 'Remotes';
+				if (!this.view.grouped) {
+					this.view.description = undefined;
+				}
 
 				void child.ensureSubscription();
 
 				return [];
 			}
 
-			this.view.message = undefined;
-			this.view.title = `Remotes (${remotes.length})`;
+			if (this.view.grouped) {
+				this.view.description = `${this.view.name.toLocaleLowerCase()} (${remotes.values.length})`;
+			} else {
+				this.view.description = `(${remotes.values.length})`;
+			}
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Remotes';
+		if (!this.view.grouped) {
+			this.view.description = undefined;
+		}
 
 		return this.children;
 	}
@@ -104,8 +111,8 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
-	constructor(container: Container) {
-		super(container, 'remotes', 'Remotes', 'remotesView');
+	constructor(container: Container, grouped?: boolean) {
+		super(container, 'remotes', 'Remotes', 'remotesView', grouped);
 	}
 
 	override get canReveal(): boolean {
@@ -121,8 +128,6 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 	}
 
 	protected registerCommands(): Disposable[] {
-		void this.container.viewCommands;
-
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
@@ -295,7 +300,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findBranch(branch, token);
 				if (node == null) return undefined;
 
@@ -324,7 +329,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				})} in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findCommit(commit, token);
 				if (node == null) return undefined;
 
@@ -350,7 +355,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 				title: `Revealing remote '${remote.name}' in the side bar...`,
 				cancellable: true,
 			},
-			async (progress, token) => {
+			async (_progress, token) => {
 				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 

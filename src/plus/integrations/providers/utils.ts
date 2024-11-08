@@ -1,10 +1,10 @@
 import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
 import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
+import type { IntegrationId } from '../../../constants.integrations';
+import { HostingIntegrationId, SelfHostedIntegrationId } from '../../../constants.integrations';
 import type { IssueOrPullRequest } from '../../../git/models/issue';
 import { equalsIgnoreCase } from '../../../system/string';
-import type { FocusItem } from '../../focus/focusProvider';
-import type { IntegrationId } from './models';
-import { HostingIntegrationId, SelfHostedIntegrationId } from './models';
+import type { LaunchpadItem } from '../../launchpad/launchpadProvider';
 
 function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
@@ -14,11 +14,11 @@ function isGitLabDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'gitlab.com');
 }
 
-function isFocusItem(item: IssueOrPullRequest | FocusItem): item is FocusItem {
-	return (item as FocusItem).uuid !== undefined;
+function isLaunchpadItem(item: IssueOrPullRequest | LaunchpadItem): item is LaunchpadItem {
+	return (item as LaunchpadItem).uuid !== undefined;
 }
 
-export function getEntityIdentifierInput(entity: IssueOrPullRequest | FocusItem): AnyEntityIdentifierInput {
+export function getEntityIdentifierInput(entity: IssueOrPullRequest | LaunchpadItem): AnyEntityIdentifierInput {
 	let entityType = EntityType.Issue;
 	if (entity.type === 'pullrequest') {
 		entityType = EntityType.PullRequest;
@@ -40,7 +40,7 @@ export function getEntityIdentifierInput(entity: IssueOrPullRequest | FocusItem)
 		entityType: entityType,
 		version: EntityVersion.One,
 		domain: domain,
-		entityId: isFocusItem(entity) ? entity.graphQLId! : entity.nodeId!,
+		entityId: isLaunchpadItem(entity) ? entity.graphQLId! : entity.nodeId!,
 	};
 }
 
